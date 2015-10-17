@@ -48,8 +48,12 @@ Pd.Planet.prototype.getUndamagedRows = function(){
 };
 
 Pd.Planet.prototype.getRandomBitCoord = function(){
-    var i = Pd.Tools.getRandomIntValue(0, this.bits.length-1);
-    return this.bits[i].getCenterCoord();
+    if(this.bits.length > 0){
+        var i = Pd.Tools.getRandomIntValue(0, this.bits.length-1);
+        return this.bits[i].getCenterCoord();
+    } else {
+        return null;
+    }
 };
 
 Pd.Planet.prototype.draw = function(){

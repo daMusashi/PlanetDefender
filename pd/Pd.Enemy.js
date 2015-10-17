@@ -20,7 +20,8 @@ Pd.Enemy = function(canvasWidth, canvasHeight, velocityModifier, targetCoord){
     this.angle = delta.getAngle(); // i radianer
 
     // diverse egenskaper som beskriver utseende
-    this.color = "rgb(255, 255, 255)";
+    this.color = "rgb(242, 50, 12)";
+    this.stroke = "rgb(158, 79, 47)";
     this.trailColor = "rgb(60, 60, 60)";
     this.size = 4;
 
@@ -39,10 +40,14 @@ Pd.Enemy.prototype.update = function(){
 
 Pd.Enemy.prototype.draw = function(){
     fill(this.color);
-    stroke(this.trailColor);
 
-    ellipse(this.position.x, this.position.y, this.size, this.size);
+    // trail
+    stroke(this.trailColor);
     line(this.startCoord.x, this.startCoord.y, this.position.x, this.position.y);
+    // head
+    stroke(this.stroke);
+    ellipse(this.position.x, this.position.y, this.size, this.size);
+
 };
 
 /**

@@ -36,25 +36,27 @@ Pd.Game = function(){
     this.weapon = new Pd.Weapon(this.canvasWidth);
 
     this.font = "arial"; // sätts i setup
-    this.handCursor = null; // sätts i setup
+    this.handCursor = null; // sätts i preload
+    this.startScreen = null; // sätts i preload
+    this.endScreen = null; // sätts i preload
+    this.gameScreen = null; // sätts i preload
     this.uiTexter = []; // sätts i setup
 
 
 };
 
-Pd.Game.prototype.reset = function(targetX, targetY){
+Pd.Game.prototype.reset = function(){
     Pd.Tools.log("Resetting game");
     this.enemiesNum = this.enemiesStartNum;
     this.enemiesWaveIndex = 0;
     this.enemiesVelocityModifier = this.enemiesVelocityStartModifier;
-    this.weaponStartBombsNum = this.enemiesStartNum + this.planetBitRows;
 };
 
 Pd.Game.prototype.fireWeapon = function(targetX, targetY){
     this.weapon.fire(targetX, targetY);
 };
 
-Pd.Game.prototype.nextWave = function(enemiesNum, velocityModifier){
+Pd.Game.prototype.nextWave = function(){
     Pd.Tools.log("Spawning wave ["+this.enemiesWaveIndex+"]");
 
     this.enemiesWaveIndex++;
@@ -96,6 +98,9 @@ Pd.Game.prototype.preload = function(){
     Pd.Tools.log("Preloading");
     this.font = loadFont("fonts/silkscreen.ttf");
     this.handCursor = loadImage("gfx/cursor_hand.png");
+    this.startScreen = loadImage("gfx/startscreen.jpg");
+    this.endScreen = loadImage("gfx/endscreen.jpg");
+    this.gameScreen = loadImage("gfx/gamescreen.jpg");
 };
 
 Pd.Game.prototype.setup = function(){
@@ -114,6 +119,16 @@ Pd.Game.prototype.setup = function(){
     this.canvas.canvas.addEventListener("click", function(ev){
         me.mouseClicked(ev.clientX, ev.clientY);
     });
+    // cheatcodes för test & debug: tryck ALT-CTRL-n för nästa wave, ALT-CTRL-e för att game over
+    body.addEventListener("keyup", function(ev){
+        var key = event.which || event.keyCode;  // använd antingen which or keyCode, p g a browser-support
+        if(key == 78 && ev.altKey && ev.ctrlKey){ // 78 = n
+            me.nextWave();
+        }
+        if(key == 69 && ev.altKey && ev.ctrlKey){ // 69 = e
+            me.mode = "end";
+        }
+    });
 
     var cX = this.canvasWidth/2;
     var cY = this.canvasHeight/2;
@@ -131,46 +146,48 @@ Pd.Game.prototype.setup = function(){
 
 Pd.Game.prototype.update = function(){
     // Uppdaterar enemies
-    for(var i = 0; i < this.enemies.length; i++) {
-        var enemy = this.enemies[i];
-        var collision = false;
-        enemy.update();
+    if(this.mode == "running") {
+        for (var i = 0; i < this.enemies.length; i++) {
+            var enemy = this.enemies[i];
+            var collision = false;
+            enemy.update();
 
-        // kollar kollision mot PlanetBits
-        if(enemy.position.y > this.planet.surfaceY - 10) { // snabbkoll för prestanda
-            for (var j = 0; j < this.planet.bits.length; j++) {
-                var planetBit = this.planet.bits[j];
-                if (planetBit.coordIsInside(enemy.position)) {
-                    this.planet.removeBit(planetBit);
+            // kollar kollision mot PlanetBits
+            if (enemy.position.y > this.planet.surfaceY - 10) { // snabbkoll för prestanda
+                for (var j = 0; j < this.planet.bits.length; j++) {
+                    var planetBit = this.planet.bits[j];
+                    if (planetBit.coordIsInside(enemy.position)) {
+                        this.planet.removeBit(planetBit);
+                        collision = true;
+                    }
+                }
+            }
+
+            // kollar kollision mot bomber
+            for (var j = 0; j < this.weapon.bombs.length; j++) {
+                var bomb = this.weapon.bombs[j];
+                if (bomb.coordIsInside(enemy.position)) {
                     collision = true;
                 }
             }
-        }
 
-        // kollar kollision mot bomber
-        for(var j = 0; j < this.weapon.bombs.length; j++) {
-            var bomb = this.weapon.bombs[j];
-            if (bomb.coordIsInside(enemy.position)) {
-                collision = true;
+            if (enemy.isOutOfBounds() || collision) {
+                // tar bort enemy
+                this.enemies.splice(i, 1); // tar bort ett element på position
             }
         }
 
-        if(enemy.isOutOfBounds()||collision){
-            // tar bort enemy
-            this.enemies.splice(i, 1); // tar bort ett element på position
+        // kollar om allt är förlorat
+        if (this.planet.bits.length <= 0) {
+            Pd.Tools.log("NOOOOOOOOOO!");
+            Pd.Tools.log("Switching game mode to END");
+            this.mode = "end";
         }
-    }
 
-    // kollar om allt är förlorat
-    if(this.planet.bits.length <= 0){
-        Pd.Tools.log("NOOOOOOOOOO!");
-        Pd.Tools.log("Switching game mode to END");
-        this.mode = "end";
-    }
-
-    // kollar om det är dags för nästa wave
-    if(this.enemies.length <= 0 && this.enemiesWaveIndex > 0){
-        this.nextWave();
+        // kollar om det är dags för nästa wave
+        if (this.enemies.length <= 0 && this.enemiesWaveIndex > 0) {
+            this.nextWave();
+        }
     }
 };
 
@@ -182,6 +199,7 @@ Pd.Game.prototype.draw = function(){
         case "running":
 
             background(this.canvasRunningColor);
+            image(this.gameScreen, 0, 0, this.canvasWidth, this.canvasHeight);
             // player
             this.weapon.draw();
             // Rita enemies
@@ -196,19 +214,23 @@ Pd.Game.prototype.draw = function(){
             this.uiTexter["wave"].draw();
             break;
         case "start":
-            cursor();
-            //image(this.cursorHand, mouseX, mouseY, 30, 30);
             background(this.canvasStartColor);
+            image(this.startScreen, 0, 0, this.canvasWidth, this.canvasHeight);
+
             this.uiTexter["start1"].draw();
             this.uiTexter["start2"].draw();
+
+            image(this.handCursor, mouseX, mouseY);
             break;
         case "end":
-            cursor();
             background(this.canvasStartColor);
+            image(this.endScreen, 0, 0, this.canvasWidth, this.canvasHeight);
             this.uiTexter["end1"].draw();
             this.uiTexter["end2"].draw();
             this.uiTexter["waves"].text = "Waves: "+this.enemiesWaveIndex;
             this.uiTexter["waves"].draw();
+
+            image(this.handCursor, mouseX, mouseY);
             break;
         default:
             cursor();
